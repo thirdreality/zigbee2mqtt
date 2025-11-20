@@ -78,8 +78,8 @@ importers:
         specifier: file:../zigbee-herdsman
         version: file:../zigbee-herdsman
       zigbee-herdsman-converters:
-        specifier: 25.9.0
-        version: 25.9.0
+        specifier: 25.56.0
+        version: 25.56.0
       zigbee2mqtt-frontend:
         specifier: 0.9.20
         version: 0.9.20
@@ -689,10 +689,6 @@ packages:
   broker-factory@3.1.8:
     resolution: {integrity: sha512-xmVnYN0FZtynhPUmAnN+/MFRdbDi3syCuxWV7o7s78FcIN0pjDtn9mUrVqEgdjQkbfojRhlPWbYbXJkMCyddrg==}
 
-  buffer-crc32@1.0.0:
-    resolution: {integrity: sha512-Db1SbgBS/fg/392AblrMJk97KggmvYhr4pB5ZIMTWtaivCPMWLkmb7m21cJvpvgK+J3nsU2CmmixNBZx4vFj/w==}
-    engines: {node: '>=8.0.0'}
-
   buffer-from@1.1.2:
     resolution: {integrity: sha512-E+XQCRwSbaaiChtv6k6Dwgc+bx+Bs6vuKJHHl5kox/BaKbhiXzqQOwK4cO22yElGp2OCmjwVhT3HmxgyPGnJfQ==}
 
@@ -1295,6 +1291,11 @@ packages:
     engines: {node: '>=10'}
     hasBin: true
 
+  semver@7.7.3:
+    resolution: {integrity: sha512-SdsKMrI9TdgjdweUSR9MweHA4EJ8YxHn8DFaDisvhVlUOe4BF1tLD7GAj0lIqWVl+dPb/rExr0Btby5loQm20Q==}
+    engines: {node: '>=10'}
+    hasBin: true
+
   send@1.2.0:
     resolution: {integrity: sha512-uaW0WwXKpL9blXE2o0bRhoL2EGXIrZxQ2ZQ4mgcfoBxdFmQold+qWsD2jLrfZ0trjKL6vOw0j//eAwcALFjKSw==}
     engines: {node: '>= 18'}
@@ -1613,8 +1614,9 @@ packages:
     resolution: {integrity: sha512-AyeEbWOu/TAXdxlV9wmGcR0+yh2j3vYPGOECcIj2S7MkrLyC7ne+oye2BKTItt0ii2PHk4cDy+95+LshzbXnGg==}
     engines: {node: '>=12.20'}
 
-  zigbee-herdsman-converters@25.9.0:
-    resolution: {integrity: sha512-KF4EDzdM804EI7wNSyC5nHF8owYTq6jYbgpbYygb/05PlHVTsZ9kPUuhqcgWC4Cf4v/OFal8RT49paqBy174bA==}
+  zigbee-herdsman-converters@25.56.0:
+    resolution: {integrity: sha512-Fh4JI62tMIvGdHaIBVHAWSE1NEGZQ7GKv96ppgi6koOoj1ceWt7C9w7tbCzvEy0ZeRhxi9mugWFChtpZPXXcjw==}
+    engines: {node: '>=20.15.0'}
 
   zigbee-herdsman@file:../zigbee-herdsman:
     resolution: {directory: ../zigbee-herdsman, type: directory}
@@ -2097,8 +2099,6 @@ snapshots:
       fast-unique-numbers: 9.0.22
       tslib: 2.8.1
       worker-factory: 7.0.44
-
-  buffer-crc32@1.0.0: {}
 
   buffer-from@1.1.2: {}
 
@@ -2727,6 +2727,8 @@ snapshots:
 
   semver@7.7.1: {}
 
+  semver@7.7.3: {}
+
   send@1.2.0:
     dependencies:
       debug: 4.4.0
@@ -3046,11 +3048,10 @@ snapshots:
 
   yocto-queue@1.2.1: {}
 
-  zigbee-herdsman-converters@25.9.0:
+  zigbee-herdsman-converters@25.56.0:
     dependencies:
-      buffer-crc32: 1.0.0
       iconv-lite: 0.7.0
-      semver: 7.7.1
+      semver: 7.7.3
       zigbee-herdsman: file:../zigbee-herdsman
     transitivePeerDependencies:
       - supports-color
