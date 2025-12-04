@@ -9,11 +9,13 @@ RUN apk add --no-cache tzdata eudev tini nodejs
 # Build zigbee-herdsman first
 FROM base AS herdsman-builder
 
-COPY zigbee-herdsman /app/zigbee-herdsman
+# Clone zigbee-herdsman directly in Docker
+RUN apk add --no-cache git make gcc g++ python3 linux-headers npm jq && \
+    git clone -b feat/blz https://github.com/fangzheli/zigbee-herdsman.git /app/zigbee-herdsman
+
 WORKDIR /app/zigbee-herdsman
 
-RUN apk add --no-cache make gcc g++ python3 linux-headers npm jq && \
-    npm install -g $(jq -r '.packageManager' package.json) && \
+RUN npm install -g $(jq -r '.packageManager' package.json) && \
     pnpm install --frozen-lockfile && \
     pnpm run build
 
