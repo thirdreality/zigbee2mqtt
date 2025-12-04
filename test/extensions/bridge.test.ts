@@ -285,7 +285,7 @@ describe("Extension: Bridge", () => {
                     },
                     frontend: {
                         enabled: false,
-                        package: "zigbee2mqtt-frontend",
+                        package: "zigbee2mqtt-windfront",
                         port: 8080,
                         base_url: "/",
                     },
@@ -2971,11 +2971,13 @@ describe("Extension: Bridge", () => {
 
     it("Should allow to remove group", async () => {
         const group = groups.group_1;
+        const removeGroupFromLookup = vi.spyOn(controller.zigbee, "removeGroupFromLookup");
         mockMQTTPublishAsync.mockClear();
         mockMQTTEvents.message("zigbee2mqtt/bridge/request/group/remove", "group_1");
         await flushPromises();
         expect(group.removeFromNetwork).toHaveBeenCalledTimes(1);
         expect(settings.getGroup("group_1")).toBeUndefined();
+        expect(removeGroupFromLookup).toHaveBeenCalledWith(1);
         expect(mockMQTTPublishAsync).toHaveBeenCalledWith("zigbee2mqtt/bridge/groups", expect.any(String), expect.any(Object));
         expect(mockMQTTPublishAsync).toHaveBeenCalledWith(
             "zigbee2mqtt/bridge/response/group/remove",
@@ -3298,7 +3300,6 @@ describe("Extension: Bridge", () => {
                         "    vendor: '',\n" +
                         "    description: 'Automatically generated definition',\n" +
                         '    extend: [m.onOff({"powerOnBehavior":false})],\n' +
-                        "    meta: {},\n" +
                         "};\n",
                 },
                 status: "ok",
