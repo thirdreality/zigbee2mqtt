@@ -23,7 +23,7 @@ FROM base AS deps
 # Copy built zigbee-herdsman
 COPY --from=herdsman-builder /app/zigbee-herdsman /app/zigbee-herdsman
 
-COPY zigbee2mqtt/package.json zigbee2mqtt/pnpm-lock.yaml ./
+COPY package.json pnpm-lock.yaml ./
 
 # The package.json already has the correct path "file:../zigbee-herdsman"
 # But we need to adjust it for the Docker build context where zigbee-herdsman is in the same directory
@@ -61,10 +61,10 @@ LABEL org.opencontainers.image.created=${DATE}
 LABEL org.opencontainers.image.version=${VERSION}
 
 COPY --from=deps /app/node_modules ./node_modules
-COPY zigbee2mqtt/dist ./dist
-COPY zigbee2mqtt/package.json zigbee2mqtt/LICENSE zigbee2mqtt/index.js zigbee2mqtt/data/configuration.example.yaml ./
+COPY dist ./dist
+COPY package.json LICENSE index.js data/configuration.example.yaml ./
 
-COPY zigbee2mqtt/docker/docker-entrypoint.sh /usr/local/bin/
+COPY docker/docker-entrypoint.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 RUN mkdir /app/data
