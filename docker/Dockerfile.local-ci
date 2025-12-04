@@ -9,13 +9,11 @@ RUN apk add --no-cache tzdata eudev tini nodejs
 # Build zigbee-herdsman first
 FROM base AS herdsman-builder
 
-# Clone zigbee-herdsman directly in Docker
-RUN apk add --no-cache git make gcc g++ python3 linux-headers npm jq && \
-    git clone -b feat/blz https://github.com/fangzheli/zigbee-herdsman.git /app/zigbee-herdsman
-
+COPY zigbee-herdsman /app/zigbee-herdsman
 WORKDIR /app/zigbee-herdsman
 
-RUN npm install -g $(jq -r '.packageManager' package.json) && \
+RUN apk add --no-cache make gcc g++ python3 linux-headers npm jq && \
+    npm install -g $(jq -r '.packageManager' package.json) && \
     pnpm install --frozen-lockfile && \
     pnpm run build
 
@@ -25,7 +23,7 @@ FROM base AS deps
 # Copy built zigbee-herdsman
 COPY --from=herdsman-builder /app/zigbee-herdsman /app/zigbee-herdsman
 
-COPY package.json pnpm-lock.yaml ./
+COPY zigbee2mqtt/package.json zigbee2mqtt/pnpm-lock.yaml ./
 
 # The package.json already has the correct path "file:../zigbee-herdsman"
 # But we need to adjust it for the Docker build context where zigbee-herdsman is in the same directory
@@ -63,10 +61,10 @@ LABEL org.opencontainers.image.created=${DATE}
 LABEL org.opencontainers.image.version=${VERSION}
 
 COPY --from=deps /app/node_modules ./node_modules
-COPY dist ./dist
-COPY package.json LICENSE index.js data/configuration.example.yaml ./
+COPY zigbee2mqtt/dist ./dist
+COPY zigbee2mqtt/package.json zigbee2mqtt/LICENSE zigbee2mqtt/index.js zigbee2mqtt/data/configuration.example.yaml ./
 
-COPY docker/docker-entrypoint.sh /usr/local/bin/
+COPY zigbee2mqtt/docker/docker-entrypoint.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 RUN mkdir /app/data

@@ -37,6 +37,12 @@ jobs:
                   registry-url: https://registry.npmjs.org/
                   cache: pnpm
 
+            - name: Prepare local zigbee-herdsman for feat/blz-local-dev
+              if: github.ref == 'refs/heads/feat/blz-local-dev' && github.event_name == 'push'
+              run: |
+                  # Clone zigbee-herdsman for local development branch
+                  git clone -b feat/blz https://github.com/fangzheli/zigbee-herdsman.git ../zigbee-herdsman
+
             - name: Install dependencies
               run: pnpm i --frozen-lockfile
 
@@ -88,8 +94,8 @@ jobs:
               if: github.ref == 'refs/heads/feat/blz-local-dev' && github.event_name == 'push'
               uses: docker/build-push-action@v6
               with:
-                  context: .
-                  file: docker/Dockerfile.local-ci
+                  context: ..
+                  file: zigbee2mqtt/docker/Dockerfile.local-ci
                   platforms: linux/arm64/v8,linux/amd64,linux/arm/v6,linux/arm/v7,linux/riscv64,linux/386
                   tags: fangzheli/zigbee2mqtt:latest-dev,ghcr.io/fangzheli/zigbee2mqtt:latest-dev
                   push: true
