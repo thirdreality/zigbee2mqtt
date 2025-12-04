@@ -7,6 +7,7 @@ on:
     branches:
       - dev
       - master
+      - feat/blz-local-dev
   pull_request:
 
 permissions:
@@ -59,7 +60,7 @@ jobs:
               if: (github.ref == 'refs/heads/dev' || startsWith(github.ref, 'refs/tags/')) && github.event_name == 'push'
               uses: docker/login-action@v3
               with:
-                  username: koenkk
+                  username: fangzheli
                   password: ${{ secrets.DOCKER_KEY }}
 
             - name: Log in to the GitHub container registry
@@ -67,7 +68,7 @@ jobs:
               uses: docker/login-action@v3
               with:
                   registry: ghcr.io
-                  username: koenkk
+                  username: fangzheli
                   password: ${{ secrets.GH_TOKEN }}
 
             - name: Docker setup - QEMU
@@ -83,14 +84,34 @@ jobs:
               with:
                   version: latest
 
-            - name: dev - Docker build and push
+            - name: dev - Prepare local zigbee-herdsman for Docker build
+              if: github.ref == 'refs/heads/feat/blz-local-dev' && github.event_name == 'push'
+              run: |
+                  # Clone the local zigbee-herdsman into the build context with correct name
+                  git clone -b feat/blz https://github.com/fangzheli/zigbee-herdsman.git zigbee-herdsman
+
+            - name: dev - Docker build and push (with local zigbee-herdsman)
+              if: github.ref == 'refs/heads/feat/blz-local-dev' && github.event_name == 'push'
+              uses: docker/build-push-action@v6
+              with:
+                  context: .
+                  file: docker/Dockerfile.local-ci
+                  platforms: linux/arm64/v8,linux/amd64,linux/arm/v6,linux/arm/v7,linux/riscv64,linux/386
+                  tags: fangzheli/zigbee2mqtt:latest-dev,ghcr.io/fangzheli/zigbee2mqtt:latest-dev
+                  push: true
+                  build-args: |
+                      COMMIT=${{ github.sha }}
+                      VERSION=dev
+                      DATE=${{ github.event.repository.updated_at }}
+
+            - name: dev - Docker build and push (standard)
               if: github.ref == 'refs/heads/dev' && github.event_name == 'push'
               uses: docker/build-push-action@v6
               with:
                   context: .
                   file: docker/Dockerfile
                   platforms: linux/arm64/v8,linux/amd64,linux/arm/v6,linux/arm/v7,linux/riscv64,linux/386
-                  tags: koenkk/zigbee2mqtt:latest-dev,ghcr.io/koenkk/zigbee2mqtt:latest-dev
+                  tags: fangzheli/zigbee2mqtt:latest-dev,ghcr.io/fangzheli/zigbee2mqtt:latest-dev
                   push: true
                   build-args: |
                       COMMIT=${{ github.sha }}
@@ -124,8 +145,8 @@ jobs:
               id: meta
               with:
                   images: |
-                      koenkk/zigbee2mqtt
-                      ghcr.io/koenkk/zigbee2mqtt
+                      fangzheli/zigbee2mqtt
+                      ghcr.io/fangzheli/zigbee2mqtt
                   tags: |
                       type=semver,pattern={{version}}
                       type=semver,pattern={{major}}.{{minor}}
