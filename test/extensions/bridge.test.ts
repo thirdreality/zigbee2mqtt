@@ -1,5 +1,6 @@
 // biome-ignore assist/source/organizeImports: import mocks first
 import {afterAll, beforeAll, beforeEach, describe, expect, it, vi} from "vitest";
+import {Zdo} from "zigbee-herdsman";
 import * as data from "../mocks/data";
 import {mockJSZipFile, mockJSZipGenerateAsync} from "../mocks/jszip";
 import {mockLogger} from "../mocks/logger";
@@ -17,6 +18,7 @@ import {Controller} from "../../lib/controller";
 import Bridge from "../../lib/extension/bridge";
 import * as settings from "../../lib/util/settings";
 import utils, {DEFAULT_BIND_GROUP_ID} from "../../lib/util/utils";
+import {Zcl} from "zigbee-herdsman";
 
 returnDevices.push(devices.coordinator.ieeeAddr);
 returnDevices.push(devices.bulb.ieeeAddr);
@@ -285,7 +287,7 @@ describe("Extension: Bridge", () => {
                     },
                     frontend: {
                         enabled: false,
-                        package: "zigbee2mqtt-frontend",
+                        package: "zigbee2mqtt-windfront",
                         port: 8080,
                         base_url: "/",
                     },
@@ -545,6 +547,7 @@ describe("Extension: Bridge", () => {
                                 property: "transition",
                                 type: "numeric",
                                 value_min: 0,
+                                value_step: 0.1,
                             },
                             {
                                 access: 2,
@@ -771,6 +774,7 @@ describe("Extension: Bridge", () => {
                                 property: "transition",
                                 type: "numeric",
                                 value_min: 0,
+                                value_step: 0.1,
                             },
                             {
                                 access: 2,
@@ -1883,6 +1887,7 @@ describe("Extension: Bridge", () => {
                                 property: "transition",
                                 type: "numeric",
                                 value_min: 0,
+                                value_step: 0.1,
                             },
                             {
                                 access: 2,
@@ -2149,6 +2154,7 @@ describe("Extension: Bridge", () => {
                                 property: "transition",
                                 type: "numeric",
                                 value_min: 0,
+                                value_step: 0.1,
                             },
                             {
                                 access: 2,
@@ -2583,6 +2589,7 @@ describe("Extension: Bridge", () => {
                                 property: "transition",
                                 type: "numeric",
                                 value_min: 0,
+                                value_step: 0.1,
                             },
                             {
                                 access: 2,
@@ -2971,11 +2978,13 @@ describe("Extension: Bridge", () => {
 
     it("Should allow to remove group", async () => {
         const group = groups.group_1;
+        const removeGroupFromLookup = vi.spyOn(controller.zigbee, "removeGroupFromLookup");
         mockMQTTPublishAsync.mockClear();
         mockMQTTEvents.message("zigbee2mqtt/bridge/request/group/remove", "group_1");
         await flushPromises();
         expect(group.removeFromNetwork).toHaveBeenCalledTimes(1);
         expect(settings.getGroup("group_1")).toBeUndefined();
+        expect(removeGroupFromLookup).toHaveBeenCalledWith(1);
         expect(mockMQTTPublishAsync).toHaveBeenCalledWith("zigbee2mqtt/bridge/groups", expect.any(String), expect.any(Object));
         expect(mockMQTTPublishAsync).toHaveBeenCalledWith(
             "zigbee2mqtt/bridge/response/group/remove",
@@ -3298,7 +3307,6 @@ describe("Extension: Bridge", () => {
                         "    vendor: '',\n" +
                         "    description: 'Automatically generated definition',\n" +
                         '    extend: [m.onOff({"powerOnBehavior":false})],\n' +
-                        "    meta: {},\n" +
                         "};\n",
                 },
                 status: "ok",
@@ -3531,11 +3539,11 @@ describe("Extension: Bridge", () => {
 
     it("Should allow to touchlink factory reset (succeeds)", async () => {
         mockMQTTPublishAsync.mockClear();
-        mockZHController.touchlinkFactoryResetFirst.mockClear();
-        mockZHController.touchlinkFactoryResetFirst.mockReturnValueOnce(true);
+        mockZHController.touchlink.factoryResetFirst.mockClear();
+        mockZHController.touchlink.factoryResetFirst.mockReturnValueOnce(true);
         mockMQTTEvents.message("zigbee2mqtt/bridge/request/touchlink/factory_reset", "");
         await flushPromises();
-        expect(mockZHController.touchlinkFactoryResetFirst).toHaveBeenCalledTimes(1);
+        expect(mockZHController.touchlink.factoryResetFirst).toHaveBeenCalledTimes(1);
         expect(mockMQTTPublishAsync).toHaveBeenCalledWith(
             "zigbee2mqtt/bridge/response/touchlink/factory_reset",
             stringify({data: {}, status: "ok"}),
@@ -3545,12 +3553,12 @@ describe("Extension: Bridge", () => {
 
     it("Should allow to touchlink factory reset specific device", async () => {
         mockMQTTPublishAsync.mockClear();
-        mockZHController.touchlinkFactoryReset.mockClear();
-        mockZHController.touchlinkFactoryReset.mockReturnValueOnce(true);
+        mockZHController.touchlink.factoryReset.mockClear();
+        mockZHController.touchlink.factoryReset.mockReturnValueOnce(true);
         mockMQTTEvents.message("zigbee2mqtt/bridge/request/touchlink/factory_reset", stringify({ieee_address: "0x1239", channel: 12}));
         await flushPromises();
-        expect(mockZHController.touchlinkFactoryReset).toHaveBeenCalledTimes(1);
-        expect(mockZHController.touchlinkFactoryReset).toHaveBeenCalledWith("0x1239", 12);
+        expect(mockZHController.touchlink.factoryReset).toHaveBeenCalledTimes(1);
+        expect(mockZHController.touchlink.factoryReset).toHaveBeenCalledWith("0x1239", 12);
         expect(mockMQTTPublishAsync).toHaveBeenCalledWith(
             "zigbee2mqtt/bridge/response/touchlink/factory_reset",
             stringify({data: {ieee_address: "0x1239", channel: 12}, status: "ok"}),
@@ -3601,11 +3609,11 @@ describe("Extension: Bridge", () => {
 
     it("Should allow to touchlink identify specific device", async () => {
         mockMQTTPublishAsync.mockClear();
-        mockZHController.touchlinkIdentify.mockClear();
+        mockZHController.touchlink.identify.mockClear();
         mockMQTTEvents.message("zigbee2mqtt/bridge/request/touchlink/identify", stringify({ieee_address: "0x1239", channel: 12}));
         await flushPromises();
-        expect(mockZHController.touchlinkIdentify).toHaveBeenCalledTimes(1);
-        expect(mockZHController.touchlinkIdentify).toHaveBeenCalledWith("0x1239", 12);
+        expect(mockZHController.touchlink.identify).toHaveBeenCalledTimes(1);
+        expect(mockZHController.touchlink.identify).toHaveBeenCalledWith("0x1239", 12);
         expect(mockMQTTPublishAsync).toHaveBeenCalledWith(
             "zigbee2mqtt/bridge/response/touchlink/identify",
             stringify({data: {ieee_address: "0x1239", channel: 12}, status: "ok"}),
@@ -3615,10 +3623,10 @@ describe("Extension: Bridge", () => {
 
     it("Touchlink identify fails when payload is invalid", async () => {
         mockMQTTPublishAsync.mockClear();
-        mockZHController.touchlinkIdentify.mockClear();
+        mockZHController.touchlink.identify.mockClear();
         mockMQTTEvents.message("zigbee2mqtt/bridge/request/touchlink/identify", stringify({ieee_address: "0x1239"}));
         await flushPromises();
-        expect(mockZHController.touchlinkIdentify).toHaveBeenCalledTimes(0);
+        expect(mockZHController.touchlink.identify).toHaveBeenCalledTimes(0);
         expect(mockMQTTPublishAsync).toHaveBeenCalledWith(
             "zigbee2mqtt/bridge/response/touchlink/identify",
             stringify({data: {}, status: "error", error: "Invalid payload"}),
@@ -3628,11 +3636,11 @@ describe("Extension: Bridge", () => {
 
     it("Should allow to touchlink factory reset (fails)", async () => {
         mockMQTTPublishAsync.mockClear();
-        mockZHController.touchlinkFactoryResetFirst.mockClear();
-        mockZHController.touchlinkFactoryResetFirst.mockReturnValueOnce(false);
+        mockZHController.touchlink.factoryResetFirst.mockClear();
+        mockZHController.touchlink.factoryResetFirst.mockReturnValueOnce(false);
         mockMQTTEvents.message("zigbee2mqtt/bridge/request/touchlink/factory_reset", "");
         await flushPromises();
-        expect(mockZHController.touchlinkFactoryResetFirst).toHaveBeenCalledTimes(1);
+        expect(mockZHController.touchlink.factoryResetFirst).toHaveBeenCalledTimes(1);
         expect(mockMQTTPublishAsync).toHaveBeenCalledWith(
             "zigbee2mqtt/bridge/response/touchlink/factory_reset",
             stringify({data: {}, status: "error", error: "Failed to factory reset device through Touchlink"}),
@@ -3642,14 +3650,14 @@ describe("Extension: Bridge", () => {
 
     it("Should allow to touchlink scan", async () => {
         mockMQTTPublishAsync.mockClear();
-        mockZHController.touchlinkScan.mockClear();
-        mockZHController.touchlinkScan.mockReturnValueOnce([
+        mockZHController.touchlink.scan.mockClear();
+        mockZHController.touchlink.scan.mockReturnValueOnce([
             {ieeeAddr: "0x123", channel: 12},
             {ieeeAddr: "0x124", channel: 24},
         ]);
         mockMQTTEvents.message("zigbee2mqtt/bridge/request/touchlink/scan", "");
         await flushPromises();
-        expect(mockZHController.touchlinkScan).toHaveBeenCalledTimes(1);
+        expect(mockZHController.touchlink.scan).toHaveBeenCalledTimes(1);
         expect(mockMQTTPublishAsync).toHaveBeenCalledWith(
             "zigbee2mqtt/bridge/response/touchlink/scan",
             stringify({
@@ -3672,7 +3680,7 @@ describe("Extension: Bridge", () => {
         endpoint.configureReporting.mockClear();
         mockMQTTPublishAsync.mockClear();
         mockMQTTEvents.message(
-            "zigbee2mqtt/bridge/request/device/configure_reporting",
+            "zigbee2mqtt/bridge/request/device/reporting/configure",
             stringify({
                 id: "0x000b57fffec6a5b2",
                 endpoint: 1,
@@ -3693,7 +3701,7 @@ describe("Extension: Bridge", () => {
             undefined,
         );
         expect(mockMQTTPublishAsync).toHaveBeenCalledWith(
-            "zigbee2mqtt/bridge/response/device/configure_reporting",
+            "zigbee2mqtt/bridge/response/device/reporting/configure",
             stringify({
                 data: {
                     id: "0x000b57fffec6a5b2",
@@ -3718,7 +3726,7 @@ describe("Extension: Bridge", () => {
         endpoint.configureReporting.mockClear();
         mockMQTTPublishAsync.mockClear();
         mockMQTTEvents.message(
-            "zigbee2mqtt/bridge/request/device/configure_reporting",
+            "zigbee2mqtt/bridge/request/device/reporting/configure",
             stringify({
                 id: "0x000b57fffec6a5b2",
                 endpoint: "1",
@@ -3739,7 +3747,7 @@ describe("Extension: Bridge", () => {
             undefined,
         );
         expect(mockMQTTPublishAsync).toHaveBeenCalledWith(
-            "zigbee2mqtt/bridge/response/device/configure_reporting",
+            "zigbee2mqtt/bridge/response/device/reporting/configure",
             stringify({
                 data: {
                     id: "0x000b57fffec6a5b2",
@@ -3763,7 +3771,7 @@ describe("Extension: Bridge", () => {
         endpoint.configureReporting.mockClear();
         mockMQTTPublishAsync.mockClear();
         mockMQTTEvents.message(
-            "zigbee2mqtt/bridge/request/device/configure_reporting",
+            "zigbee2mqtt/bridge/request/device/reporting/configure",
             stringify({
                 id: "bulb",
                 // endpoint: '1',
@@ -3777,7 +3785,7 @@ describe("Extension: Bridge", () => {
         await flushPromises();
         expect(endpoint.configureReporting).toHaveBeenCalledTimes(0);
         expect(mockMQTTPublishAsync).toHaveBeenCalledWith(
-            "zigbee2mqtt/bridge/response/device/configure_reporting",
+            "zigbee2mqtt/bridge/response/device/reporting/configure",
             stringify({data: {}, status: "error", error: "Invalid payload"}),
             {},
         );
@@ -3789,7 +3797,7 @@ describe("Extension: Bridge", () => {
         endpoint.configureReporting.mockClear();
         mockMQTTPublishAsync.mockClear();
         mockMQTTEvents.message(
-            "zigbee2mqtt/bridge/request/device/configure_reporting",
+            "zigbee2mqtt/bridge/request/device/reporting/configure",
             stringify({
                 id: "non_existing_device",
                 endpoint: "1",
@@ -3803,7 +3811,7 @@ describe("Extension: Bridge", () => {
         await flushPromises();
         expect(endpoint.configureReporting).toHaveBeenCalledTimes(0);
         expect(mockMQTTPublishAsync).toHaveBeenCalledWith(
-            "zigbee2mqtt/bridge/response/device/configure_reporting",
+            "zigbee2mqtt/bridge/response/device/reporting/configure",
             stringify({data: {}, status: "error", error: "Device 'non_existing_device' does not exist"}),
             {},
         );
@@ -3815,7 +3823,7 @@ describe("Extension: Bridge", () => {
         endpoint.configureReporting.mockClear();
         mockMQTTPublishAsync.mockClear();
         mockMQTTEvents.message(
-            "zigbee2mqtt/bridge/request/device/configure_reporting",
+            "zigbee2mqtt/bridge/request/device/reporting/configure",
             stringify({
                 id: "0x000b57fffec6a5b2",
                 endpoint: "non_existing_endpoint",
@@ -3829,7 +3837,243 @@ describe("Extension: Bridge", () => {
         await flushPromises();
         expect(endpoint.configureReporting).toHaveBeenCalledTimes(0);
         expect(mockMQTTPublishAsync).toHaveBeenCalledWith(
-            "zigbee2mqtt/bridge/response/device/configure_reporting",
+            "zigbee2mqtt/bridge/response/device/reporting/configure",
+            stringify({data: {}, status: "error", error: "Device '0x000b57fffec6a5b2' does not have endpoint 'non_existing_endpoint'"}),
+            {},
+        );
+    });
+
+    it("Should allow to read reporting config with endpoint as number", async () => {
+        const device = devices.bulb;
+        const endpoint = device.getEndpoint(1)!;
+        endpoint.bind.mockClear();
+        endpoint.readReportingConfig.mockClear();
+        endpoint.readReportingConfig.mockResolvedValueOnce([
+            {
+                status: Zcl.Status.SUCCESS,
+                direction: Zcl.Direction.CLIENT_TO_SERVER,
+                attrId: Zcl.Clusters.genLevelCtrl.attributes.currentLevel.ID,
+                dataType: Zcl.DataType.UINT8,
+                minRepIntval: 10,
+                maxRepIntval: 60,
+                repChange: 2,
+            },
+        ]);
+        mockMQTTPublishAsync.mockClear();
+        mockMQTTEvents.message(
+            "zigbee2mqtt/bridge/request/device/reporting/read",
+            stringify({
+                id: "0x000b57fffec6a5b2",
+                endpoint: 1,
+                cluster: "genLevelCtrl",
+                configs: [{attribute: "currentLevel"}],
+            }),
+        );
+        await flushPromises();
+        expect(endpoint.readReportingConfig).toHaveBeenCalledTimes(1);
+        expect(endpoint.readReportingConfig).toHaveBeenCalledWith("genLevelCtrl", [{attribute: "currentLevel"}], {});
+        expect(mockMQTTPublishAsync).toHaveBeenCalledWith(
+            "zigbee2mqtt/bridge/response/device/reporting/read",
+            stringify({
+                data: {
+                    id: "0x000b57fffec6a5b2",
+                    endpoint: 1,
+                    cluster: "genLevelCtrl",
+                    configs: [
+                        {
+                            status: Zcl.Status.SUCCESS,
+                            direction: Zcl.Direction.CLIENT_TO_SERVER,
+                            attrId: Zcl.Clusters.genLevelCtrl.attributes.currentLevel.ID,
+                            dataType: Zcl.DataType.UINT8,
+                            minRepIntval: 10,
+                            maxRepIntval: 60,
+                            repChange: 2,
+                        },
+                    ],
+                },
+                status: "ok",
+            }),
+            {},
+        );
+        expect(mockMQTTPublishAsync).toHaveBeenCalledWith("zigbee2mqtt/bridge/devices", expect.any(String), {retain: true});
+    });
+
+    it("Should allow to read reporting config with endpoint as string", async () => {
+        const device = devices.bulb;
+        const endpoint = device.getEndpoint(1)!;
+        endpoint.bind.mockClear();
+        endpoint.readReportingConfig.mockClear();
+        endpoint.readReportingConfig.mockResolvedValueOnce([
+            {
+                status: Zcl.Status.SUCCESS,
+                direction: Zcl.Direction.CLIENT_TO_SERVER,
+                attrId: Zcl.Clusters.genLevelCtrl.attributes.currentLevel.ID,
+                dataType: Zcl.DataType.UINT8,
+                minRepIntval: 10,
+                maxRepIntval: 60,
+                repChange: 2,
+            },
+        ]);
+        mockMQTTPublishAsync.mockClear();
+        mockMQTTEvents.message(
+            "zigbee2mqtt/bridge/request/device/reporting/read",
+            stringify({
+                id: "0x000b57fffec6a5b2",
+                endpoint: "1",
+                cluster: "genLevelCtrl",
+                configs: [{attribute: "currentLevel"}],
+            }),
+        );
+        await flushPromises();
+        expect(endpoint.readReportingConfig).toHaveBeenCalledTimes(1);
+        expect(endpoint.readReportingConfig).toHaveBeenCalledWith("genLevelCtrl", [{attribute: "currentLevel"}], {});
+        expect(mockMQTTPublishAsync).toHaveBeenCalledWith(
+            "zigbee2mqtt/bridge/response/device/reporting/read",
+            stringify({
+                data: {
+                    id: "0x000b57fffec6a5b2",
+                    endpoint: "1",
+                    cluster: "genLevelCtrl",
+                    configs: [
+                        {
+                            status: Zcl.Status.SUCCESS,
+                            direction: Zcl.Direction.CLIENT_TO_SERVER,
+                            attrId: Zcl.Clusters.genLevelCtrl.attributes.currentLevel.ID,
+                            dataType: Zcl.DataType.UINT8,
+                            minRepIntval: 10,
+                            maxRepIntval: 60,
+                            repChange: 2,
+                        },
+                    ],
+                },
+                status: "ok",
+            }),
+            {},
+        );
+        expect(mockMQTTPublishAsync).toHaveBeenCalledWith("zigbee2mqtt/bridge/devices", expect.any(String), {retain: true});
+    });
+
+    it("Should allow to read reporting config with manufacturer code", async () => {
+        const device = devices.bulb;
+        const endpoint = device.getEndpoint(1)!;
+        endpoint.bind.mockClear();
+        endpoint.readReportingConfig.mockClear();
+        endpoint.readReportingConfig.mockResolvedValueOnce([
+            {
+                status: Zcl.Status.SUCCESS,
+                direction: Zcl.Direction.CLIENT_TO_SERVER,
+                attrId: Zcl.Clusters.genLevelCtrl.attributes.currentLevel.ID,
+                dataType: Zcl.DataType.UINT8,
+                minRepIntval: 10,
+                maxRepIntval: 60,
+                repChange: 2,
+            },
+        ]);
+        mockMQTTPublishAsync.mockClear();
+        mockMQTTEvents.message(
+            "zigbee2mqtt/bridge/request/device/reporting/read",
+            stringify({
+                id: "0x000b57fffec6a5b2",
+                endpoint: 1,
+                cluster: "genLevelCtrl",
+                configs: [{attribute: "currentLevel"}],
+                manufacturer_code: 0x1234,
+            }),
+        );
+        await flushPromises();
+        expect(endpoint.readReportingConfig).toHaveBeenCalledTimes(1);
+        expect(endpoint.readReportingConfig).toHaveBeenCalledWith("genLevelCtrl", [{attribute: "currentLevel"}], {manufacturerCode: 0x1234});
+        expect(mockMQTTPublishAsync).toHaveBeenCalledWith(
+            "zigbee2mqtt/bridge/response/device/reporting/read",
+            stringify({
+                data: {
+                    id: "0x000b57fffec6a5b2",
+                    endpoint: 1,
+                    cluster: "genLevelCtrl",
+                    configs: [
+                        {
+                            status: Zcl.Status.SUCCESS,
+                            direction: Zcl.Direction.CLIENT_TO_SERVER,
+                            attrId: Zcl.Clusters.genLevelCtrl.attributes.currentLevel.ID,
+                            dataType: Zcl.DataType.UINT8,
+                            minRepIntval: 10,
+                            maxRepIntval: 60,
+                            repChange: 2,
+                        },
+                    ],
+                    manufacturer_code: 0x1234,
+                },
+                status: "ok",
+            }),
+            {},
+        );
+        expect(mockMQTTPublishAsync).toHaveBeenCalledWith("zigbee2mqtt/bridge/devices", expect.any(String), {retain: true});
+    });
+
+    it("Should throw error when read reporting config is called with malformed payload", async () => {
+        const device = devices.bulb;
+        const endpoint = device.getEndpoint(1)!;
+        endpoint.readReportingConfig.mockClear();
+        mockMQTTPublishAsync.mockClear();
+        mockMQTTEvents.message(
+            "zigbee2mqtt/bridge/request/device/reporting/read",
+            stringify({
+                id: "bulb",
+                // endpoint: '1',
+                cluster: "genLevelCtrl",
+                configs: [{attribute: "currentLevel"}],
+            }),
+        );
+        await flushPromises();
+        expect(endpoint.readReportingConfig).toHaveBeenCalledTimes(0);
+        expect(mockMQTTPublishAsync).toHaveBeenCalledWith(
+            "zigbee2mqtt/bridge/response/device/reporting/read",
+            stringify({data: {}, status: "error", error: "Invalid payload"}),
+            {},
+        );
+    });
+
+    it("Should throw error when read reporting config is called for non-existing device", async () => {
+        const device = devices.bulb;
+        const endpoint = device.getEndpoint(1)!;
+        endpoint.readReportingConfig.mockClear();
+        mockMQTTPublishAsync.mockClear();
+        mockMQTTEvents.message(
+            "zigbee2mqtt/bridge/request/device/reporting/read",
+            stringify({
+                id: "non_existing_device",
+                endpoint: "1",
+                cluster: "genLevelCtrl",
+                configs: [{attribute: "currentLevel"}],
+            }),
+        );
+        await flushPromises();
+        expect(endpoint.readReportingConfig).toHaveBeenCalledTimes(0);
+        expect(mockMQTTPublishAsync).toHaveBeenCalledWith(
+            "zigbee2mqtt/bridge/response/device/reporting/read",
+            stringify({data: {}, status: "error", error: "Device 'non_existing_device' does not exist"}),
+            {},
+        );
+    });
+
+    it("Should throw error when read reporting config is called for non-existing endpoint", async () => {
+        const device = devices.bulb;
+        const endpoint = device.getEndpoint(1)!;
+        endpoint.readReportingConfig.mockClear();
+        mockMQTTPublishAsync.mockClear();
+        mockMQTTEvents.message(
+            "zigbee2mqtt/bridge/request/device/reporting/read",
+            stringify({
+                id: "0x000b57fffec6a5b2",
+                endpoint: "non_existing_endpoint",
+                cluster: "genLevelCtrl",
+                configs: [{attribute: "currentLevel"}],
+            }),
+        );
+        await flushPromises();
+        expect(endpoint.readReportingConfig).toHaveBeenCalledTimes(0);
+        expect(mockMQTTPublishAsync).toHaveBeenCalledWith(
+            "zigbee2mqtt/bridge/response/device/reporting/read",
             stringify({data: {}, status: "error", error: "Device '0x000b57fffec6a5b2' does not have endpoint 'non_existing_endpoint'"}),
             {},
         );
@@ -4104,5 +4348,98 @@ describe("Extension: Bridge", () => {
             retain: true,
         });
         expect(mockMQTTPublishAsync).toHaveBeenCalledWith("zigbee2mqtt/bridge/response/device/configure", expect.any(String), {});
+    });
+
+    it("triggers ZHC action by name with params", async () => {
+        mockMQTTPublishAsync.mockClear();
+
+        mockMQTTEvents.message(
+            "zigbee2mqtt/bridge/request/action",
+            JSON.stringify({
+                action: "raw",
+                params: {
+                    profileId: Zdo.ZDO_PROFILE_ID,
+                    ieeeAddress: "0xf1f2f3f4f5f6f7f8",
+                    networkAddress: 0x1234,
+                    clusterKey: Zdo.ClusterId.NETWORK_ADDRESS_REQUEST,
+                    zdoParams: ["0xa1a2a3a4a5a6a7a8", false, 0],
+                },
+            }),
+        );
+        await flushPromises();
+
+        expect(mockMQTTPublishAsync).toHaveBeenCalledWith(
+            "zigbee2mqtt/bridge/response/action",
+            JSON.stringify({data: [0x00, {assocDevList: [], eui64: "", nwkAddress: 0x1234, startIndex: 0}], status: "ok"}),
+            {},
+        );
+    });
+
+    it("triggers ZHC action by name without params", async () => {
+        mockMQTTPublishAsync.mockClear();
+
+        mockMQTTEvents.message(
+            "zigbee2mqtt/bridge/request/action",
+            JSON.stringify({
+                action: "raw",
+            }),
+        );
+        await flushPromises();
+
+        // we're mocking the response, so it's always this as long as the action & payload are valid
+        expect(mockMQTTPublishAsync).toHaveBeenCalledWith(
+            "zigbee2mqtt/bridge/response/action",
+            JSON.stringify({data: [0x00, {assocDevList: [], eui64: "", nwkAddress: 0x1234, startIndex: 0}], status: "ok"}),
+            {},
+        );
+    });
+
+    it("throws on invalid action payload", async () => {
+        mockMQTTPublishAsync.mockClear();
+
+        mockMQTTEvents.message(
+            "zigbee2mqtt/bridge/request/action",
+            JSON.stringify({
+                params: {
+                    profileId: Zdo.ZDO_PROFILE_ID,
+                    ieeeAddress: "0xf1f2f3f4f5f6f7f8",
+                    networkAddress: 0x1234,
+                    clusterKey: Zdo.ClusterId.NETWORK_ADDRESS_REQUEST,
+                    zdoParams: ["0xa1a2a3a4a5a6a7a8", false, 0],
+                },
+            }),
+        );
+        await flushPromises();
+
+        expect(mockMQTTPublishAsync).toHaveBeenCalledWith(
+            "zigbee2mqtt/bridge/response/action",
+            stringify({data: {}, status: "error", error: "Invalid payload"}),
+            {},
+        );
+    });
+
+    it("throws on invalid action", async () => {
+        mockMQTTPublishAsync.mockClear();
+
+        mockMQTTEvents.message(
+            "zigbee2mqtt/bridge/request/action",
+            JSON.stringify({
+                action: "DOES_NOT_EXIST",
+                params: {
+                    profileId: Zdo.ZDO_PROFILE_ID,
+                    ieeeAddress: "0xf1f2f3f4f5f6f7f8",
+                    networkAddress: 0x1234,
+                    clusterKey: Zdo.ClusterId.NETWORK_ADDRESS_REQUEST,
+                    zdoParams: ["0xa1a2a3a4a5a6a7a8", false, 0],
+                },
+            }),
+        );
+        await flushPromises();
+
+        expect(mockMQTTPublishAsync).toHaveBeenCalledWith(
+            "zigbee2mqtt/bridge/response/action",
+            stringify({data: {}, status: "error", error: "Invalid action"}),
+            {},
+        );
     });
 });

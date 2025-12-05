@@ -31,7 +31,10 @@ export default class Bridge extends Extension {
     private logTransport!: winston.transport;
     private requestLookup: {[key: string]: (message: KeyValue | string) => Promise<Zigbee2MQTTResponse<Zigbee2MQTTResponseEndpoints>>} = {
         "device/options": this.deviceOptions,
-        "device/configure_reporting": this.deviceConfigureReporting,
+        /** @deprecated 3.0 */
+        "device/configure_reporting": this.deviceReportingConfigure,
+        "device/reporting/configure": this.deviceReportingConfigure,
+        "device/reporting/read": this.deviceReportingRead,
         "device/remove": this.deviceRemove,
         "device/interview": this.deviceInterview,
         "device/generate_external_definition": this.deviceGenerateExternalDefinition,
@@ -50,6 +53,7 @@ export default class Bridge extends Extension {
         health_check: this.healthCheck,
         coordinator_check: this.coordinatorCheck,
         options: this.bridgeOptions,
+        action: this.action,
     };
 
     override async start(): Promise<void> {
@@ -466,16 +470,16 @@ export default class Bridge extends Extension {
         return utils.getResponse(message, {from: oldOptions, to: newOptions, id: ID, restart_required: this.restartRequired});
     }
 
-    @bind async deviceConfigureReporting(message: string | KeyValue): Promise<Zigbee2MQTTResponse<"bridge/response/device/configure_reporting">> {
+    @bind async deviceReportingConfigure(message: string | KeyValue): Promise<Zigbee2MQTTResponse<"bridge/response/device/reporting/configure">> {
         if (
             typeof message !== "object" ||
             message.id === undefined ||
             message.endpoint === undefined ||
             message.cluster === undefined ||
-            message.maximum_report_interval === undefined ||
-            message.minimum_report_interval === undefined ||
-            message.reportable_change === undefined ||
-            message.attribute === undefined
+            message.attribute === undefined ||
+            typeof message.maximum_report_interval !== "number" ||
+            typeof message.minimum_report_interval !== "number" ||
+            (message.reportable_change !== undefined && typeof message.reportable_change !== "number")
         ) {
             throw new Error("Invalid payload");
         }
@@ -518,6 +522,46 @@ export default class Bridge extends Extension {
         });
     }
 
+    @bind async deviceReportingRead(message: string | KeyValue): Promise<Zigbee2MQTTResponse<"bridge/response/device/reporting/read">> {
+        if (
+            typeof message !== "object" ||
+            message.id === undefined ||
+            message.endpoint === undefined ||
+            message.cluster === undefined ||
+            message.configs === undefined
+        ) {
+            throw new Error("Invalid payload");
+        }
+
+        const device = this.getEntity("device", message.id);
+        const endpoint = device.endpoint(message.endpoint);
+
+        if (!endpoint) {
+            throw new Error(`Device '${device.ID}' does not have endpoint '${message.endpoint}'`);
+        }
+
+        const response = await endpoint.readReportingConfig(
+            message.cluster,
+            message.configs,
+            message.manufacturer_code ? {manufacturerCode: message.manufacturer_code} : {},
+        );
+
+        await this.publishDevices();
+
+        const responseData: Zigbee2MQTTAPI["bridge/response/device/reporting/read"] = {
+            id: message.id,
+            endpoint: message.endpoint,
+            cluster: message.cluster,
+            configs: response,
+        };
+
+        if (message.manufacturer_code) {
+            responseData.manufacturer_code = message.manufacturer_code;
+        }
+
+        return utils.getResponse(message, responseData);
+    }
+
     @bind async deviceInterview(message: string | KeyValue): Promise<Zigbee2MQTTResponse<"bridge/response/device/interview">> {
         if (typeof message !== "object" || message.id === undefined) {
             throw new Error("Invalid payload");
@@ -552,6 +596,22 @@ export default class Bridge extends Extension {
         const source = await zhc.generateExternalDefinitionSource(device.zh);
 
         return utils.getResponse(message, {id: message.id, source});
+    }
+
+    @bind async action(message: string | KeyValue): Promise<Zigbee2MQTTResponse<"bridge/response/action">> {
+        if (typeof message !== "object" || !message.action) {
+            throw new Error("Invalid payload");
+        }
+
+        const action = zhc.ACTIONS[message.action];
+
+        if (action === undefined) {
+            throw new Error("Invalid action");
+        }
+
+        const response = await action(this.zigbee.zhController, message.params ?? {});
+
+        return utils.getResponse(message, response);
     }
 
     async renameEntity<T extends "device" | "group">(
@@ -638,6 +698,7 @@ export default class Bridge extends Extension {
                     await entity.zh.removeFromNetwork();
                 }
 
+                this.zigbee.removeGroupFromLookup(entity.ID);
                 settings.removeGroup(entity.ID);
             }
 
@@ -811,6 +872,7 @@ export default class Bridge extends Extension {
         const data: Zigbee2MQTTAPI["bridge/definitions"] = {
             clusters: Zcl.Clusters,
             custom_clusters: {},
+            actions: Object.keys(zhc.ACTIONS),
         };
 
         for (const device of this.zigbee.devicesIterator((d) => !utils.objectIsEmpty(d.customClusters))) {

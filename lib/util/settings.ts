@@ -1,9 +1,7 @@
 import path from "node:path";
 import type {ValidateFunction} from "ajv";
-
 import Ajv from "ajv";
 import objectAssignDeep from "object-assign-deep";
-
 import data from "./data";
 import schemaJson from "./settings.schema.json";
 import utils from "./utils";
@@ -42,7 +40,7 @@ export const defaults = {
     },
     frontend: {
         enabled: false,
-        package: "zigbee2mqtt-frontend",
+        package: "zigbee2mqtt-windfront",
         port: 8080,
         base_url: "/",
     },
@@ -609,7 +607,7 @@ export function addGroup(name: string, id?: string): GroupOptions {
         id = "1";
 
         while (settings.groups[id]) {
-            id = (Number.parseInt(id) + 1).toString();
+            id = (Number.parseInt(id, 10) + 1).toString();
         }
     } else {
         // ensure provided ID is not in use
