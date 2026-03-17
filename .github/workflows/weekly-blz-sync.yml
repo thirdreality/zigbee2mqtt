@@ -1,0 +1,73 @@
+name: Weekly BLZ Upstream Sync
+
+on:
+  schedule:
+    - cron: "0 7 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/blz-local-dev
+          fetch-depth: 0
+          token: ${{ secrets.GH_TOKEN }}
+
+      - name: Configure upstream
+        run: |
+          git remote add upstream https://github.com/Koenkk/zigbee2mqtt.git 2>/dev/null || true
+          git fetch upstream master --tags
+
+      - name: Build candidate version
+        id: version
+        run: |
+          LATEST_TAG=$(git tag -l --sort=-v:refname | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | head -1)
+          TODAY=$(date -u +%Y%m%d)
+          echo "latest_tag=$LATEST_TAG" >> "$GITHUB_OUTPUT"
+          echo "candidate_version=${LATEST_TAG}-blz.${TODAY}.1" >> "$GITHUB_OUTPUT"
+          echo "sync_branch=sync/z2m-${LATEST_TAG}-${TODAY}-${GITHUB_RUN_ATTEMPT}" >> "$GITHUB_OUTPUT"
+
+      - name: Prepare sync branch
+        run: |
+          git checkout -b "${{ steps.version.outputs.sync_branch }}"
+          if ! git merge --no-ff --no-edit upstream/master; then
+            git merge --abort
+            echo "Failed to merge upstream/master into feat/blz-local-dev" >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+
+      - name: Update package version
+        run: |
+          jq --indent 4 '.version = "${{ steps.version.outputs.candidate_version }}"' package.json > package.json.tmp
+          mv package.json.tmp package.json
+          git add package.json
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "chore: sync upstream ${{ steps.version.outputs.latest_tag }} as ${{ steps.version.outputs.candidate_version }}"
+          git push --set-upstream origin "${{ steps.version.outputs.sync_branch }}"
+
+      - name: Create sync PR
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ secrets.GH_TOKEN }}
+          branch: ${{ steps.version.outputs.sync_branch }}
+          base: feat/blz-local-dev
+          title: "Sync upstream ${{ steps.version.outputs.latest_tag }} as ${{ steps.version.outputs.candidate_version }}"
+          body: |
+            Weekly BLZ sync candidate based on upstream Zigbee2MQTT `${{ steps.version.outputs.latest_tag }}`.
+
+            Candidate release: `${{ steps.version.outputs.candidate_version }}`
+
+            Release gate before tagging:
+            - [ ] Local BLZ smoke test passed
+            - [ ] Dedicated lamp toggle validated
+            - [ ] Version and digest recorded
+          labels: |
+            automated
+            blz-sync

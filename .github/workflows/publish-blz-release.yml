@@ -1,0 +1,44 @@
+name: Publish Approved BLZ Release
+
+on:
+  repository_dispatch:
+    types:
+      - blz-release-approved
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    if: github.event.client_payload.line == 'z2m-standalone'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/blz-local-dev
+          fetch-depth: 0
+          token: ${{ secrets.GH_TOKEN }}
+
+      - name: Apply approved version
+        run: |
+          VERSION="${{ github.event.client_payload.version }}"
+          jq --indent 4 '.version = "'"$VERSION"'"' package.json > package.json.tmp
+          mv package.json.tmp package.json
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package.json
+          git commit -m "chore: release $VERSION" || true
+          git tag "$VERSION"
+          git push origin feat/blz-local-dev
+          git push origin "$VERSION"
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.client_payload.version }}
+          name: ${{ github.event.client_payload.version }}
+          body: |
+            Approved after local BLZ smoke regression.
+
+            Upstream line: `${{ github.event.client_payload.upstream_line }}`
+            Commit: `${{ github.sha }}`
