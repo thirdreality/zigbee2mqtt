@@ -28,6 +28,8 @@ import utils from "./util/utils";
 import Zigbee from "./zigbee";
 
 export class Controller {
+    /** Allows canceling in-progress startup sequence if necessary. Signal can be passed to long-running ops as necessary for finer control. */
+    #startAbortController: AbortController | undefined;
     public readonly eventBus: EventBus;
     public readonly zigbee: Zigbee;
     public readonly state: State;
@@ -79,6 +81,9 @@ export class Controller {
     }
 
     async start(): Promise<void> {
+        this.#startAbortController = new AbortController();
+        const abortSignal = this.#startAbortController.signal;
+
         if (settings.get().frontend.enabled) {
             const {Frontend} = await import("./extension/frontend.js");
 
@@ -93,29 +98,48 @@ export class Controller {
 
         this.state.start();
 
+        if (abortSignal.aborted) {
+            logger.info(`Zigbee2MQTT start aborted, reason=${abortSignal.reason}`);
+            return;
+        }
+
         const info = await utils.getZigbee2MQTTVersion();
         logger.info(`Starting Zigbee2MQTT version ${info.version} (commit #${info.commitHash})`);
 
         // Start zigbee
         try {
-            await this.zigbee.start();
-            this.eventBus.onAdapterDisconnected(this, this.onZigbeeAdapterDisconnected);
-        } catch (error) {
-            logger.error("Failed to start zigbee-herdsman");
-            logger.error(
-                "Check https://www.zigbee2mqtt.io/guide/installation/20_zigbee2mqtt-fails-to-start_crashes-runtime.html for possible solutions",
-            );
-            logger.error("Exiting...");
-            // biome-ignore lint/style/noNonNullAssertion: always Error
-            logger.error((error as Error).stack!);
+            const started = await this.zigbee.start(abortSignal);
 
-            /* v8 ignore start */
-            if ((error as Error).message.includes("USB adapter discovery error (No valid USB adapter found)")) {
-                logger.error("If this happens after updating to Zigbee2MQTT 2.0.0, see https://github.com/Koenkk/zigbee2mqtt/discussions/24364");
+            if (started) {
+                this.eventBus.onAdapterDisconnected(this, async () => {
+                    logger.error("Adapter disconnected, stopping");
+                    await this.stop(false, 2);
+                });
             }
-            /* v8 ignore stop */
+        } catch (error) {
+            // skip if aborted by `stop`
+            if (error !== "SIGINT" && error !== "SIGTERM" && error !== "STOPABORT") {
+                logger.error("Failed to start zigbee-herdsman");
+                logger.error(
+                    "Check https://www.zigbee2mqtt.io/guide/installation/20_zigbee2mqtt-fails-to-start_crashes-runtime.html for possible solutions",
+                );
+                logger.error("Exiting...");
+                // biome-ignore lint/style/noNonNullAssertion: always Error
+                logger.error((error as Error).stack!);
 
-            return await this.exit(1);
+                /* v8 ignore start */
+                if ((error as Error).message.includes("USB adapter discovery error (No valid USB adapter found)")) {
+                    logger.error("If this happens after updating to Zigbee2MQTT 2.0.0, see https://github.com/Koenkk/zigbee2mqtt/discussions/24364");
+                }
+                /* v8 ignore stop */
+
+                return await this.exit(1);
+            }
+        }
+
+        if (abortSignal.aborted) {
+            logger.info(`Zigbee2MQTT start aborted, reason=${abortSignal.reason}`);
+            return;
         }
 
         // Log zigbee clients on startup
@@ -143,9 +167,19 @@ export class Controller {
             return await this.exit(1);
         }
 
+        if (abortSignal.aborted) {
+            logger.info(`Zigbee2MQTT start aborted, reason=${abortSignal.reason}`);
+            return;
+        }
+
         // copy current Set of extensions to ignore possible external extensions added while looping
         for (const extension of new Set(this.extensions)) {
             await this.startExtension(extension);
+
+            if (abortSignal.aborted) {
+                logger.info(`Zigbee2MQTT start aborted, reason=${abortSignal.reason}`);
+                return;
+            }
         }
 
         // Send all cached states.
@@ -153,21 +187,32 @@ export class Controller {
             for (const entity of this.zigbee.devicesAndGroupsIterator()) {
                 if (this.state.exists(entity)) {
                     await this.publishEntityState(entity, this.state.get(entity), "publishCached");
+
+                    if (abortSignal.aborted) {
+                        logger.info(`Zigbee2MQTT start aborted, reason=${abortSignal.reason}`);
+                        return;
+                    }
                 }
             }
         }
 
-        this.eventBus.onLastSeenChanged(this, (data) => utils.publishLastSeen(data, settings.get(), false, this.publishEntityState));
+        this.eventBus.onLastSeenChanged(this, (data) => {
+            utils.publishLastSeen(data, settings.get(), false, this.publishEntityState).catch(() => {});
+        });
 
         logger.info("Zigbee2MQTT started!");
 
         this.sdNotify = await initSdNotify();
 
         settings.setOnboarding(false);
+
+        this.#startAbortController = undefined; // gc
     }
 
     @bind async enableDisableExtension(enable: boolean, name: string): Promise<void> {
         if (enable) {
+            let extension: Extension;
+
             switch (name) {
                 case "Frontend": {
                     if (!settings.get().frontend.enabled) {
@@ -178,7 +223,7 @@ export class Controller {
                     /* v8 ignore start */
                     const {Frontend} = await import("./extension/frontend.js");
 
-                    await this.addExtension(new Frontend(...this.extensionArgs));
+                    extension = new Frontend(...this.extensionArgs);
 
                     break;
                     /* v8 ignore stop */
@@ -190,7 +235,7 @@ export class Controller {
 
                     const {HomeAssistant} = await import("./extension/homeassistant.js");
 
-                    await this.addExtension(new HomeAssistant(...this.extensionArgs));
+                    extension = new HomeAssistant(...this.extensionArgs);
 
                     break;
                 }
@@ -200,6 +245,12 @@ export class Controller {
                     );
                 }
             }
+
+            const existingExtension = this.getExtension(name);
+            if (existingExtension) {
+                await this.removeExtension(existingExtension);
+            }
+            await this.extensions.add(extension);
         } else {
             switch (name) {
                 case "Frontend": {
@@ -281,7 +332,10 @@ export class Controller {
         }
     }
 
-    async stop(restart = false, code = 0): Promise<void> {
+    async stop(restart = false, code = 0, signal: NodeJS.Signals | undefined = undefined): Promise<void> {
+        logger.info(`Stopping Zigbee2MQTT (restart=${restart}, code=${code}, signal=${signal})`);
+
+        this.#startAbortController?.abort(signal ?? "STOPABORT");
         this.sdNotify?.notifyStopping();
 
         let localCode = 0;
@@ -315,11 +369,6 @@ export class Controller {
     async exit(code: number, restart = false): Promise<void> {
         await logger.end();
         return await this.exitCallback(code, restart);
-    }
-
-    @bind async onZigbeeAdapterDisconnected(): Promise<void> {
-        logger.error("Adapter disconnected, stopping");
-        await this.stop(false, 2);
     }
 
     @bind async publishEntityState(entity: Group | Device, payload: KeyValue, stateChangeReason?: StateChangeReason): Promise<void> {

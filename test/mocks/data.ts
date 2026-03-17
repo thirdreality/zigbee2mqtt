@@ -1,9 +1,8 @@
 import fs from "node:fs";
 import path from "node:path";
-
 import stringify from "json-stable-stringify-without-jsonify";
 import tmp from "tmp";
-
+import {vi} from "vitest";
 import yaml from "../../lib/util/yaml";
 
 export const mockDir: string = tmp.dirSync().name;
@@ -25,6 +24,9 @@ export const DEFAULT_CONFIGURATION = {
     devices: {
         "0x18fc2600000d7ae2": {
             friendly_name: "bosch_radiator",
+        },
+        "0x18fc2600000d7ae3": {
+            friendly_name: "bosch_rm230z",
         },
         "0x000b57fffec6a5b2": {
             retain: true,
@@ -275,6 +277,10 @@ export function stateExists(): boolean {
     return fs.existsSync(stateFile);
 }
 
+export function readState(): Record<string, unknown> {
+    return JSON.parse(fs.readFileSync(stateFile, "utf8"));
+}
+
 const defaultState = {
     "0x000b57fffec6a5b2": {
         state: "ON",
@@ -294,8 +300,8 @@ export function getDefaultState(): typeof defaultState {
     return defaultState;
 }
 
-export function writeDefaultState(): void {
-    fs.writeFileSync(path.join(mockDir, "state.json"), stringify(defaultState));
+export function writeDefaultState(data: Record<string, unknown> = defaultState): void {
+    fs.writeFileSync(stateFile, stringify(data));
 }
 
 export function writeEmptyDatabase(): void {

@@ -9,27 +9,25 @@ import * as settings from "./settings";
 const NAMESPACE_SEPARATOR = ":";
 
 class Logger {
-    // @ts-expect-error initalized in `init`
-    private level: settings.LogLevel;
-    // @ts-expect-error initalized in `init`
-    private output: string[];
-    // @ts-expect-error initalized in `init`
-    private directory: string;
-    // @ts-expect-error initalized in `init`
-    private logger: winston.Logger;
-    // @ts-expect-error initalized in `init`
-    private fileTransport: winston.transports.FileTransportInstance;
+    private level!: settings.LogLevel;
+    private output!: string[];
+    private directory!: string;
+    private logger!: winston.Logger;
+    private fileTransport: winston.transports.FileTransportInstance | undefined;
     private debugNamespaceIgnoreRegex?: RegExp;
-    // @ts-expect-error initalized in `init`
-    private namespacedLevels: Record<string, settings.LogLevel>;
-    // @ts-expect-error initalized in `init`
-    private cachedNamespacedLevels: Record<string, settings.LogLevel>;
+    private namespacedLevels!: Record<string, settings.LogLevel>;
+    private cachedNamespacedLevels!: Record<string, settings.LogLevel>;
 
     public init(): void {
         // What transports to enable
         this.output = settings.get().advanced.log_output;
-        // Directory to log to
-        const timestamp = new Date().toISOString().slice(0, 19).replace("T", ".").replace(/:/g, "-");
+        const date = new Date();
+        // offset UTC by current timezone, ISO keeps "Z" (UTC) which is then wrong but we strip it
+        const timestamp = new Date(date.getTime() - date.getTimezoneOffset() * 60000)
+            .toISOString()
+            .slice(0, 19)
+            .replace("T", ".")
+            .replaceAll(":", "-");
         this.directory = settings.get().advanced.log_directory.replace("%TIMESTAMP%", timestamp);
         const logFilename = settings.get().advanced.log_file.replace("%TIMESTAMP%", timestamp);
         this.level = settings.get().advanced.log_level;
@@ -144,11 +142,7 @@ class Logger {
     }
 
     public getDebugNamespaceIgnore(): string {
-        return (
-            this.debugNamespaceIgnoreRegex
-                ?.toString()
-                .slice(1, -1) /* remove slashes */ ?? ""
-        );
+        return this.debugNamespaceIgnoreRegex?.toString().slice(1, -1) /* remove slashes */ ?? "";
     }
 
     public setDebugNamespaceIgnore(value: string): void {
@@ -240,7 +234,11 @@ class Logger {
 
             for (const dir of directories) {
                 this.debug(`Removing old log directory '${dir.path}'`);
-                rimrafSync(dir.path);
+                try {
+                    rimrafSync(dir.path);
+                } catch (e) {
+                    this.error(`Failed to remove old log directory '${dir.path}': ${e}`);
+                }
             }
         }
     }
@@ -262,7 +260,10 @@ class Logger {
                     // @ts-expect-error workaround
                     this.fileTransport.on("open", () => this.fileTransport._dest.on("finish", resolve));
                 }
-                this.fileTransport.end();
+
+                if (this.fileTransport) {
+                    this.fileTransport.end();
+                }
             });
         }
     }

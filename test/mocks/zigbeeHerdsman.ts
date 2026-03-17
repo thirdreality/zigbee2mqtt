@@ -3,6 +3,8 @@ import {type Mock, vi} from "vitest";
 import type {AdapterTypes} from "zigbee-herdsman";
 import {Zcl} from "zigbee-herdsman";
 import {InterviewState} from "zigbee-herdsman/dist/controller/model/device";
+import type {OtaDataSettings, OtaExtraMetas, OtaSource, OtaUpdateAvailableResult} from "zigbee-herdsman/dist/controller/tstype";
+import type {TClusterCommandPayload} from "zigbee-herdsman/dist/zspec/zcl/definition/clusters-types";
 import type {BindingTableEntry, LQITableEntry, RoutingTableEntry} from "zigbee-herdsman/dist/zspec/zdo/definition/tstypes";
 import {DEFAULT_BIND_GROUP_ID} from "../../lib/util/utils";
 import type {EventHandler} from "./utils";
@@ -254,6 +256,34 @@ export class Device {
     routingTable: Mock<() => Promise<RoutingTableEntry[]>>;
     bindingTable: Mock<() => Promise<BindingTableEntry[]>>;
     clearAllBindings: Mock<() => Promise<void>>;
+    checkOta =
+        vi.fn<
+            (
+                source: OtaSource,
+                current: TClusterCommandPayload<"genOta", "queryNextImageRequest"> | undefined,
+                extraMetas: OtaExtraMetas,
+                endpoint: Endpoint,
+            ) => Promise<OtaUpdateAvailableResult>
+        >();
+    updateOta =
+        vi.fn<
+            (
+                source: Readonly<OtaSource> | undefined,
+                requestPayload: TClusterCommandPayload<"genOta", "queryNextImageRequest"> | undefined,
+                requestTsn: number | undefined,
+                extraMetas: Readonly<OtaExtraMetas>,
+                onProgress: (progress: number, remaining: number) => void,
+                dataSettings: OtaDataSettings,
+                endpoint: Endpoint,
+            ) => Promise<[from: OtaUpdateAvailableResult["current"], to: OtaUpdateAvailableResult["current"] | undefined]>
+        >();
+    scheduleOta = vi.fn((source) => {
+        this.scheduledOta = source;
+    });
+    unscheduleOta = vi.fn(() => {
+        this.scheduledOta = undefined;
+    });
+    scheduledOta: OtaSource | undefined = undefined;
 
     constructor(
         type: string,
@@ -311,7 +341,12 @@ export class Device {
         this.routingTable.mockClear();
         this.bindingTable.mockClear();
         this.clearAllBindings.mockClear();
+        this.checkOta.mockClear();
+        this.updateOta.mockClear();
+        this.scheduleOta.mockClear();
+        this.unscheduleOta.mockClear();
         this.meta = {};
+        this.scheduledOta = undefined;
 
         for (const ep of this.endpoints) {
             ep.mockClear();
@@ -1137,13 +1172,31 @@ export const devices = {
         "DC Source",
         "FanBee1",
     ),
+    BTH_RM230Z: new Device(
+        "Router",
+        "0x18fc2600000d7ae3",
+        35902,
+        4617,
+        [new Endpoint(1, [0, 3, 513, 516, 1029, 2821], [10, 25], "0x18fc2600000d7ae3")],
+        InterviewState.Successful,
+        "Mains (single phase)",
+        "RBSH-RTH0-ZB-EU",
+        undefined,
+        undefined,
+        undefined,
+        CUSTOM_CLUSTER_BTHRA,
+    ),
 };
 
 export const mockController = {
     on: (type: string, handler: EventHandler): void => {
         events[type] = handler;
     },
-    start: vi.fn((): Promise<AdapterTypes.StartResult> => Promise.resolve("reset")),
+    start: vi.fn(async (abortSignal?: AbortSignal): Promise<AdapterTypes.StartResult> => {
+        abortSignal?.throwIfAborted();
+
+        return await Promise.resolve("reset");
+    }),
     stop: vi.fn(),
     touchlink: {identify: vi.fn(), scan: vi.fn(), factoryReset: vi.fn(), factoryResetFirst: vi.fn()},
     addInstallCode: vi.fn(),

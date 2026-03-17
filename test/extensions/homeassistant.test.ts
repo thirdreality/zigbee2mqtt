@@ -129,6 +129,7 @@ describe("Extension: HomeAssistant", () => {
 
     it("Should discover devices and groups", async () => {
         settings.set(["homeassistant", "experimental_event_entities"], true);
+        settings.set(["groups", "9", "homeassistant"], {name: "HA Discovery Group", icon: "mdi:lightbulb-group"});
         await resetExtension();
 
         let payload;
@@ -140,12 +141,13 @@ describe("Extension: HomeAssistant", () => {
             command_topic: "zigbee2mqtt/ha_discovery_group/set",
             device: {
                 identifiers: ["zigbee2mqtt_1221051039810110150109113116116_9"],
-                name: "ha_discovery_group",
+                name: "HA Discovery Group",
                 sw_version: version,
                 model: "Group",
                 manufacturer: "Zigbee2MQTT",
                 via_device: "zigbee2mqtt_bridge_0x00124b00120144ae",
             },
+            icon: "mdi:lightbulb-group",
             max_mireds: 454,
             min_mireds: 250,
             name: null,
@@ -209,12 +211,13 @@ describe("Extension: HomeAssistant", () => {
             command_topic: "zigbee2mqtt/ha_discovery_group/set",
             device: {
                 identifiers: ["zigbee2mqtt_1221051039810110150109113116116_9"],
-                name: "ha_discovery_group",
+                name: "HA Discovery Group",
                 sw_version: version,
                 model: "Group",
                 manufacturer: "Zigbee2MQTT",
                 via_device: "zigbee2mqtt_bridge_0x00124b00120144ae",
             },
+            icon: "mdi:lightbulb-group",
             name: null,
             payload_off: "OFF",
             payload_on: "ON",
@@ -941,6 +944,45 @@ describe("Extension: HomeAssistant", () => {
         });
     });
 
+    it("Should discover siren (HS2WD-E)", () => {
+        const payload = {
+            available_tones: ["emergency"],
+            support_duration: true,
+            optimistic: true,
+            command_topic: "zigbee2mqtt/siren/set",
+            command_template:
+                '{"warning": {"mode": "{{ tone | default(\'emergency\') }}", ' +
+                '"level": "' +
+                "{% if volume_level is defined %}" +
+                "{% if volume_level | float <= 0.25 %}low" +
+                "{% elif volume_level | float <= 0.5 %}medium" +
+                "{% elif volume_level | float <= 0.75 %}high" +
+                "{% else %}very_high{% endif %}" +
+                '{% else %}medium{% endif %}", ' +
+                '"duration": {{ duration | default(10) }}}}',
+            command_off_template: '{"warning": {"mode": "stop"}}',
+            name: null,
+            object_id: "siren",
+            default_entity_id: "siren.siren",
+            unique_id: "0x0017880104e45549_siren_zigbee2mqtt",
+            origin: origin,
+            device: {
+                identifiers: ["zigbee2mqtt_0x0017880104e45549"],
+                name: "siren",
+                model: "Smart siren",
+                model_id: "HS2WD-E",
+                manufacturer: "Heiman",
+                via_device: "zigbee2mqtt_bridge_0x00124b00120144ae",
+            },
+            availability: [{topic: "zigbee2mqtt/bridge/state", value_template: "{{ value_json.state }}"}],
+        };
+
+        expect(mockMQTTPublishAsync).toHaveBeenCalledWith("homeassistant/siren/0x0017880104e45549/siren/config", stringify(payload), {
+            retain: true,
+            qos: 1,
+        });
+    });
+
     it("Should discover devices with speed-controlled fan", () => {
         const payload = {
             state_topic: "zigbee2mqtt/fanbee",
@@ -1195,6 +1237,82 @@ describe("Extension: HomeAssistant", () => {
         expect(mockLogger.error).toHaveBeenCalledWith(expect.stringContaining("Failed to override HA discovery payload"));
 
         overrideSpy.mockRestore();
+    });
+
+    it("Should discover Bosch BTH-RM230Z with a current_humidity attribute", () => {
+        const payload = {
+            action_template:
+                "{% set values = {None:None,'idle':'idle','heat':'heating','cool':'cooling','fan_only':'fan'} %}{{ values[value_json.running_state] }}",
+            action_topic: "zigbee2mqtt/bosch_rm230z",
+            availability: [{topic: "zigbee2mqtt/bridge/state", value_template: "{{ value_json.state }}"}],
+            current_humidity_template: "{{ value_json.humidity }}",
+            current_humidity_topic: "zigbee2mqtt/bosch_rm230z",
+            current_temperature_template: "{{ value_json.local_temperature }}",
+            current_temperature_topic: "zigbee2mqtt/bosch_rm230z",
+            default_entity_id: "climate.bosch_rm230z",
+            device: {
+                identifiers: ["zigbee2mqtt_0x18fc2600000d7ae3"],
+                manufacturer: "Bosch",
+                model: "Room thermostat II 230V",
+                model_id: "BTH-RM230Z",
+                name: "bosch_rm230z",
+                via_device: "zigbee2mqtt_bridge_0x00124b00120144ae",
+            },
+            max_temp: "30",
+            min_temp: "5",
+            mode_command_topic: "zigbee2mqtt/bosch_rm230z/set",
+            mode_state_template:
+                "{% set values = {'schedule':'auto','manual':'heat','pause':'off'} %}{% set value = value_json.operating_mode %}{% if value == \"manual\" %}{{ value_json.system_mode }}{% else %}{{ values[value] if value in values.keys() else 'off' }}{% endif %}",
+            mode_command_template:
+                "{% set values = { 'auto':'schedule','heat':'manual','cool':'manual','off':'pause'} %}{% if value == \"heat\" or value == \"cool\" %}{\"operating_mode\": \"manual\", \"system_mode\": \"{{ value }}\"}{% else %}{\"operating_mode\": \"{{ values[value] if value in values.keys() else 'pause' }}\"}{% endif %}",
+            mode_state_topic: "zigbee2mqtt/bosch_rm230z",
+            modes: ["off", "heat", "cool", "auto"],
+            name: null,
+            object_id: "bosch_rm230z",
+            origin,
+            temp_step: 0.5,
+            temperature_high_command_topic: "zigbee2mqtt/bosch_rm230z/set/occupied_cooling_setpoint",
+            temperature_high_state_template: "{{ value_json.occupied_cooling_setpoint }}",
+            temperature_high_state_topic: "zigbee2mqtt/bosch_rm230z",
+            temperature_low_command_topic: "zigbee2mqtt/bosch_rm230z/set/occupied_heating_setpoint",
+            temperature_low_state_template: "{{ value_json.occupied_heating_setpoint }}",
+            temperature_low_state_topic: "zigbee2mqtt/bosch_rm230z",
+            temperature_unit: "C",
+            unique_id: "0x18fc2600000d7ae3_climate_zigbee2mqtt",
+        };
+
+        expect(mockMQTTPublishAsync).toHaveBeenCalledWith("homeassistant/climate/0x18fc2600000d7ae3/climate/config", stringify(payload), {
+            qos: 1,
+            retain: true,
+        });
+    });
+
+    it("Should discover seperate temperature sensor for thermostat", () => {
+        const payload = {
+            availability: [{topic: "zigbee2mqtt/bridge/state", value_template: "{{ value_json.state }}"}],
+            default_entity_id: "sensor.bosch_rm230z_local_temperature",
+            device: {
+                identifiers: ["zigbee2mqtt_0x18fc2600000d7ae3"],
+                manufacturer: "Bosch",
+                model: "Room thermostat II 230V",
+                model_id: "BTH-RM230Z",
+                name: "bosch_rm230z",
+                via_device: "zigbee2mqtt_bridge_0x00124b00120144ae",
+            },
+            device_class: "temperature",
+            object_id: "bosch_rm230z_local_temperature",
+            origin,
+            state_class: "measurement",
+            state_topic: "zigbee2mqtt/bosch_rm230z",
+            unique_id: "0x18fc2600000d7ae3_local_temperature_zigbee2mqtt",
+            unit_of_measurement: "°C",
+            value_template: "{{ value_json.local_temperature }}",
+        };
+
+        expect(mockMQTTPublishAsync).toHaveBeenCalledWith("homeassistant/sensor/0x18fc2600000d7ae3/local_temperature/config", stringify(payload), {
+            qos: 1,
+            retain: true,
+        });
     });
 
     it("Should discover devices with cover_position", () => {
@@ -2896,10 +3014,6 @@ describe("Extension: HomeAssistant", () => {
         await expect(async () => {
             await controller.enableDisableExtension(false, "HomeAssistant");
         }).rejects.toThrow("Tried to disable HomeAssistant extension enabled in settings");
-
-        await expect(async () => {
-            await controller.enableDisableExtension(true, "HomeAssistant");
-        }).rejects.toThrow("Extension with name HomeAssistant already present");
 
         settings.set(["homeassistant", "enabled"], false);
 
