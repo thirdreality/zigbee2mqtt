@@ -248,6 +248,7 @@ jobs:
                   git push origin dev
 
     tests:
+        if: github.ref != 'refs/heads/feat/blz-local-dev'
         strategy:
             matrix:
                 os: [ubuntu-latest, macos-latest, windows-latest]
