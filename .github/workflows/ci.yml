@@ -44,7 +44,7 @@ jobs:
               if: github.ref == 'refs/heads/feat/blz-local-dev' && github.event_name == 'push'
               run: |
                   # Clone and build zigbee-herdsman for local development branch
-                  git clone -b feat/blz https://github.com/${{ github.repository_owner }}/zigbee-herdsman.git ../zigbee-herdsman
+                  git clone -b feat/blz https://x-access-token:${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}@github.com/${{ github.repository_owner }}/zigbee-herdsman.git ../zigbee-herdsman
                   cd ../zigbee-herdsman
                   pnpm install --frozen-lockfile
                   pnpm run build
