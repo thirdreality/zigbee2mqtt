@@ -12,7 +12,7 @@ importers:
   .:
     dependencies:
       ajv:
-        specifier: ^8.18.0
+        specifier: ^8.20.0
         version: 8.20.0
       bind-decorator:
         specifier: ^1.0.11
@@ -21,7 +21,7 @@ importers:
         specifier: ^3.0.0
         version: 3.0.0
       express-static-gzip:
-        specifier: ^3.0.0
+        specifier: ^3.0.1
         version: 3.0.1
       fast-deep-equal:
         specifier: ^3.1.3
@@ -75,17 +75,17 @@ importers:
         specifier: file:../zigbee-herdsman
         version: file:../zigbee-herdsman
       zigbee-herdsman-converters:
-        specifier: 26.27.0
-        version: 26.27.0
+        specifier: 26.46.0
+        version: 26.46.0
       zigbee2mqtt-frontend:
         specifier: 0.9.21
         version: 0.9.21
       zigbee2mqtt-windfront:
-        specifier: 2.11.1
-        version: 2.11.1
+        specifier: 2.11.2
+        version: 2.11.2
     devDependencies:
       '@biomejs/biome':
-        specifier: ^2.4.10
+        specifier: ^2.4.14
         version: 2.4.14
       '@types/finalhandler':
         specifier: ^1.2.3
@@ -97,7 +97,7 @@ importers:
         specifier: ^4.0.9
         version: 4.0.9
       '@types/node':
-        specifier: ^24.12.0
+        specifier: ^24.12.2
         version: 24.12.2
       '@types/object-assign-deep':
         specifier: ^0.4.3
@@ -118,8 +118,8 @@ importers:
         specifier: ^0.2.5
         version: 0.2.5
       typescript:
-        specifier: ^5.9.3
-        version: 5.9.3
+        specifier: ^6.0.3
+        version: 6.0.3
       vitest:
         specifier: ^3.1.1
         version: 3.2.4(@types/node@24.12.2)
@@ -1320,8 +1320,8 @@ packages:
   typedarray@0.0.6:
     resolution: {integrity: sha512-/aCDEGatGvZ2BIk+HmLf4ifCJFwvKFNb9/JeZPMulfgFracn9QFcAf5GO8B/mweUjSoblS5In0cWhqpfs/5PQA==}
 
-  typescript@5.9.3:
-    resolution: {integrity: sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw==}
+  typescript@6.0.3:
+    resolution: {integrity: sha512-y2TvuxSZPDyQakkFRPZHKFm+KKVqIisdg9/CZwm9ftvKXLP8NRWj38/ODjNbr43SsoXqNuAisEf1GdCxqWcdBw==}
     engines: {node: '>=14.17'}
     hasBin: true
 
@@ -1468,8 +1468,8 @@ packages:
       utf-8-validate:
         optional: true
 
-  zigbee-herdsman-converters@26.27.0:
-    resolution: {integrity: sha512-l0Tc/TBRML5lO298NRxr2CtKcQ5YxA96FINJuifyGGG62mANSa+UmAcvl0P/fnPo8r7q8wdCYxXrb/7lYILZKA==}
+  zigbee-herdsman-converters@26.46.0:
+    resolution: {integrity: sha512-RFRQQoxGrz8si/wsFOPMdFXF1ppO0mQxU9cyRvzT98HV4bL3dnUKEWIdo6caCllLn6izA5kdob9vtxXqruU/SQ==}
     engines: {node: '>=20.15.0'}
 
   zigbee-herdsman@file:../zigbee-herdsman:
@@ -1483,8 +1483,8 @@ packages:
     resolution: {integrity: sha512-ClHYlG7g0v/tnIsD6kycNCi1ZEKIbQuU7lGJR3WqYcDmuqEMVcHDGbRiRwYRQcZGMxkqCf7guxNsXiKnC10+kg==}
     engines: {node: '>=20.11'}
 
-  zigbee2mqtt-windfront@2.11.1:
-    resolution: {integrity: sha512-2xM01JnuCWZlb1xYkIBVFAGJ6mkuAq/DRi8kfmB8KlA77LzHuX+f85pdgDotF9WGWb4+TqxmnpifYri1Nc3K2A==}
+  zigbee2mqtt-windfront@2.11.2:
+    resolution: {integrity: sha512-NzuPB8VHZsuumb3euxX73fXtM+neLCgabhBUM1UoVHubF//w9afe6Wuws2e1W59yOSd03lAn9/Bkmt6sgDgjwQ==}
     engines: {node: '>=22.12.0'}
 
 snapshots:
@@ -2582,7 +2582,7 @@ snapshots:
 
   typedarray@0.0.6: {}
 
-  typescript@5.9.3: {}
+  typescript@6.0.3: {}
 
   undici-types@7.16.0: {}
 
@@ -2753,7 +2753,7 @@ snapshots:
 
   ws@8.20.0: {}
 
-  zigbee-herdsman-converters@26.27.0:
+  zigbee-herdsman-converters@26.46.0:
     dependencies:
       iconv-lite: 0.7.2
       semver: 7.7.4
@@ -2779,4 +2779,4 @@ snapshots:
 
   zigbee2mqtt-frontend@0.9.21: {}
 
-  zigbee2mqtt-windfront@2.11.1: {}
+  zigbee2mqtt-windfront@2.11.2: {}
