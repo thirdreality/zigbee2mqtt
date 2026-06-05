@@ -6,22 +6,13 @@ ENV NODE_ENV=production
 WORKDIR /app
 RUN apk add --no-cache tzdata eudev tini nodejs
 
-# Build zigbee-herdsman first
-FROM base AS herdsman-builder
-
-COPY zigbee-herdsman /app/zigbee-herdsman
-WORKDIR /app/zigbee-herdsman
-
-RUN apk add --no-cache make gcc g++ python3 linux-headers npm jq && \
-    npm install -g $(jq -r '.packageManager' package.json) && \
-    CI=true pnpm install && \
-    pnpm run build
-
 # Dependencies and build
 FROM base AS deps
 
-# Copy built zigbee-herdsman
-COPY --from=herdsman-builder /app/zigbee-herdsman /app/zigbee-herdsman
+# The GitHub workflow builds zigbee-herdsman on the native runner before Docker
+# buildx starts. Reusing that context avoids running Node/pnpm build steps under
+# arm64 QEMU, which is slow and can fail with illegal instructions.
+COPY zigbee-herdsman /app/zigbee-herdsman
 
 COPY package.json pnpm-lock.yaml ./
 
@@ -74,4 +65,3 @@ RUN echo "$COMMIT" > dist/.hash
 
 ENTRYPOINT ["docker-entrypoint.sh"]
 CMD [ "/sbin/tini", "--", "node", "index.js"]
-
